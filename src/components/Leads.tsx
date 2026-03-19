@@ -1,14 +1,18 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 
-const allLeads = [
-  { name: "Cuisines Dupont", dirigeant: "Marc Dupont", ville: "Lyon", tel: "06 12 34 56 78", email: "marc@cuisinesdupont.fr", statut: "Pas de site", agence: "Media Solar", niche: "Cuisiniste" },
-  { name: "Atelier Cuisine", dirigeant: "Sophie Martin", ville: "Bordeaux", tel: "07 23 45 67 89", email: "", statut: "Site obsolète", agence: "WebPro", niche: "Cuisiniste" },
-  { name: "Micka Service", dirigeant: "Mickael Saada", ville: "Montpellier", tel: "07 83 07 28 74", email: "", statut: "Pas de site", agence: "Media Solar", niche: "Plombier" },
-  { name: "La Cuisine de Paul", dirigeant: "Paul Renard", ville: "Nantes", tel: "06 98 76 54 32", email: "paul@cuisinedepaul.fr", statut: "Site correct", agence: "DigiLocal", niche: "Cuisiniste" },
-  { name: "Wedding Dreams", dirigeant: "Julie Blanc", ville: "Paris", tel: "06 11 22 33 44", email: "", statut: "Pas de site", agence: "Media Solar", niche: "Wedding planner" },
-  { name: "CBD Shop Lyon", dirigeant: "Kevin Morel", ville: "Lyon", tel: "07 55 66 77 88", email: "kevin@cbdlyon.fr", statut: "Site obsolète", agence: "WebPro", niche: "CBD" },
-];
+type Lead = {
+  id: string;
+  nom: string;
+  dirigeant: string;
+  ville: string;
+  tel: string;
+  email: string;
+  statut: string;
+  agence: string;
+  niche: string;
+};
 
 const badgeColor: Record<string, string> = {
   "Pas de site": "bg-red-100 text-red-700",
@@ -17,12 +21,47 @@ const badgeColor: Record<string, string> = {
 };
 
 export default function Leads() {
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [search, setSearch] = useState("");
   const [filtreStatut, setFiltreStatut] = useState("Tous");
   const [filtreAgence, setFiltreAgence] = useState("Toutes");
+  const [showForm, setShowForm] = useState(false);
+  const [nom, setNom] = useState("");
+  const [dirigeant, setDirigeant] = useState("");
+  const [ville, setVille] = useState("");
+  const [tel, setTel] = useState("");
+  const [email, setEmail] = useState("");
+  const [statut, setStatut] = useState("Pas de site");
+  const [agence, setAgence] = useState("Media Solar");
+  const [niche, setNiche] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const filtered = allLeads.filter((l) => {
-    const matchSearch = l.name.toLowerCase().includes(search.toLowerCase()) || l.ville.toLowerCase().includes(search.toLowerCase());
+  const fetchLeads = async () => {
+    const { data } = await supabase.from("leads").select("*").order("created_at", { ascending: false });
+    if (data) setLeads(data);
+  };
+
+  useEffect(() => {
+    fetchLeads();
+  }, []);
+
+  const handleSave = async () => {
+    if (!nom) return;
+    setLoading(true);
+    await supabase.from("leads").insert({ nom, dirigeant, ville, tel, email, statut, agence, niche });
+    setNom(""); setDirigeant(""); setVille(""); setTel(""); setEmail(""); setNiche("");
+    setShowForm(false);
+    setLoading(false);
+    fetchLeads();
+  };
+
+  const handleDelete = async (id: string) => {
+    await supabase.from("leads").delete().eq("id", id);
+    fetchLeads();
+  };
+
+  const filtered = leads.filter((l) => {
+    const matchSearch = l.nom?.toLowerCase().includes(search.toLowerCase()) || l.ville?.toLowerCase().includes(search.toLowerCase());
     const matchStatut = filtreStatut === "Tous" || l.statut === filtreStatut;
     const matchAgence = filtreAgence === "Toutes" || l.agence === filtreAgence;
     return matchSearch && matchStatut && matchAgence;
@@ -32,28 +71,64 @@ export default function Leads() {
     <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
       <div className="flex justify-between items-center">
         <h1 className="text-lg font-medium">Mes leads</h1>
-        <button className="bg-blue-500 text-white text-sm px-4 py-2 rounded-lg">⬇ Exporter Excel</button>
+        <div className="flex gap-2">
+          <button onClick={() => setShowForm(!showForm)} className="bg-blue-500 text-white text-sm px-4 py-2 rounded-lg">+ Ajouter un lead</button>
+        </div>
       </div>
 
+      {showForm && (
+        <div className="bg-white border border-gray-100 rounded-xl p-5">
+          <div className="text-sm font-medium mb-4">Nouveau lead</div>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-gray-400">Entreprise</label>
+              <input className="border border-gray-200 rounded-lg px-3 py-2 text-sm" value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Nom entreprise" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-gray-400">Dirigeant</label>
+              <input className="border border-gray-200 rounded-lg px-3 py-2 text-sm" value={dirigeant} onChange={(e) => setDirigeant(e.target.value)} placeholder="Prénom Nom" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-gray-400">Ville</label>
+              <input className="border border-gray-200 rounded-lg px-3 py-2 text-sm" value={ville} onChange={(e) => setVille(e.target.value)} placeholder="Lyon" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-gray-400">Téléphone</label>
+              <input className="border border-gray-200 rounded-lg px-3 py-2 text-sm" value={tel} onChange={(e) => setTel(e.target.value)} placeholder="06 xx xx xx xx" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-gray-400">Email</label>
+              <input className="border border-gray-200 rounded-lg px-3 py-2 text-sm" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@entreprise.fr" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-gray-400">Niche</label>
+              <input className="border border-gray-200 rounded-lg px-3 py-2 text-sm" value={niche} onChange={(e) => setNiche(e.target.value)} placeholder="Cuisiniste" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-gray-400">Statut site</label>
+              <select className="border border-gray-200 rounded-lg px-3 py-2 text-sm" value={statut} onChange={(e) => setStatut(e.target.value)}>
+                <option>Pas de site</option>
+                <option>Site obsolète</option>
+                <option>Site correct</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-gray-400">Agence</label>
+              <input className="border border-gray-200 rounded-lg px-3 py-2 text-sm" value={agence} onChange={(e) => setAgence(e.target.value)} placeholder="Media Solar" />
+            </div>
+          </div>
+          <button onClick={handleSave} disabled={loading} className="mt-4 bg-blue-500 text-white text-sm px-6 py-2 rounded-lg disabled:opacity-50">
+            {loading ? "Enregistrement..." : "Enregistrer"}
+          </button>
+        </div>
+      )}
+
       <div className="flex gap-3">
-        <input
-          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
-          placeholder="Rechercher par nom, ville..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <select
-          className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
-          value={filtreStatut}
-          onChange={(e) => setFiltreStatut(e.target.value)}
-        >
+        <input className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white" placeholder="Rechercher par nom, ville..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        <select className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white" value={filtreStatut} onChange={(e) => setFiltreStatut(e.target.value)}>
           {["Tous", "Pas de site", "Site obsolète", "Site correct"].map((s) => <option key={s}>{s}</option>)}
         </select>
-        <select
-          className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
-          value={filtreAgence}
-          onChange={(e) => setFiltreAgence(e.target.value)}
-        >
+        <select className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white" value={filtreAgence} onChange={(e) => setFiltreAgence(e.target.value)}>
           {["Toutes", "Media Solar", "WebPro", "DigiLocal"].map((a) => <option key={a}>{a}</option>)}
         </select>
       </div>
@@ -70,18 +145,23 @@ export default function Leads() {
               <th className="text-left pb-3">Email</th>
               <th className="text-left pb-3">Statut</th>
               <th className="text-left pb-3">Agence</th>
+              <th className="text-left pb-3"></th>
             </tr>
           </thead>
           <tbody>
+            {filtered.length === 0 && (
+              <tr><td colSpan={8} className="text-center text-gray-400 py-8">Aucun lead — ajoute ton premier lead !</td></tr>
+            )}
             {filtered.map((l) => (
-              <tr key={l.name} className="border-t border-gray-50">
-                <td className="py-3 font-medium">{l.name}</td>
+              <tr key={l.id} className="border-t border-gray-50">
+                <td className="py-3 font-medium">{l.nom}</td>
                 <td className="py-3 text-gray-500">{l.dirigeant}</td>
                 <td className="py-3 text-gray-500">{l.ville}</td>
                 <td className="py-3 text-gray-500">{l.tel}</td>
                 <td className="py-3 text-gray-400">{l.email || "—"}</td>
                 <td className="py-3"><span className={`text-xs px-2 py-1 rounded-full font-medium ${badgeColor[l.statut]}`}>{l.statut}</span></td>
                 <td className="py-3 text-gray-500">{l.agence}</td>
+                <td className="py-3"><button onClick={() => handleDelete(l.id)} className="text-xs text-gray-400 hover:text-red-500">Supprimer</button></td>
               </tr>
             ))}
           </tbody>
