@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  background-color: #0f1117;
+  color: #e5e7eb;
+}
+
+.bg-white { background-color: #1a1d27 !important; }
+.bg-gray-100 { background-color: #0f1117 !important; }
+.bg-gray-50 { background-color: #13161f !important; }
+.text-gray-500 { color: #9ca3af !important; }
+.text-gray-400 { color: #6b7280 !important; }
+.border-gray-200 { border-color: #2d3148 !important; }
+.border-gray-100 { border-color: #1e2235 !important; }
+.hover\:bg-gray-100:hover { background-color: #1e2235 !important; }
