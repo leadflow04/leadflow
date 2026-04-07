@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { supabase } from "@/lib/supabase";
 
 const niches = ["Cuisiniste", "Wedding planner", "CBD", "Plombier", "Électricien", "Coiffeur"];
 const agences = ["Media Solar", "Agence WebPro", "DigiLocal"];
@@ -10,9 +11,8 @@ export default function Sourcing() {
   const [exclusions, setExclusions] = useState<string[]>(["cuisinella", "ikea", "darty"]);
   const [newExclusion, setNewExclusion] = useState("");
   const [agence, setAgence] = useState(agences[0]);
-  const [nombre, setNombre] = useState(100);
   const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState(false);
+  const [result, setResult] = useState<{ success: boolean; count: number } | null>(null);
 
   const addExclusion = () => {
     if (newExclusion.trim()) {
@@ -25,13 +25,29 @@ export default function Sourcing() {
     setExclusions(exclusions.filter((e) => e !== tag));
   };
 
-  const handleLancer = () => {
+  const handleLancer = async () => {
+    if (!niche || !villes) return;
     setLoading(true);
-    setDone(false);
-    setTimeout(() => {
-      setLoading(false);
-      setDone(true);
-    }, 2500);
+    setResult(null);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const res = await fetch("/api/scraping", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          ...(session ? { "Authorization": `Bearer ${session.access_token}` } : {})
+        },
+        body: JSON.stringify({ niche, villes, agence, exclusions }),
+      });
+      const data = await res.json();
+      setResult(data);
+    } catch (e) {
+      setResult({ success: false, count: 0 });
+    }
+
+    setLoading(false);
   };
 
   return (
@@ -65,16 +81,6 @@ export default function Sourcing() {
               placeholder="Ex: Lyon, Bordeaux, Nantes"
               value={villes}
               onChange={(e) => setVilles(e.target.value)}
-            />
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-gray-400">Nombre de leads</label>
-            <input
-              type="number"
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm"
-              value={nombre}
-              onChange={(e) => setNombre(Number(e.target.value))}
             />
           </div>
 
@@ -122,17 +128,26 @@ export default function Sourcing() {
           </div>
 
           <div className="mt-auto pt-4 border-t border-gray-100">
-            <div className="text-xs text-gray-400 mb-3">Coût estimé : <span className="text-gray-700 font-medium">~0,001€</span></div>
             <button
               onClick={handleLancer}
-              disabled={loading}
+              disabled={loading || !niche || !villes}
               className="w-full bg-blue-500 text-white text-sm py-3 rounded-lg font-medium hover:bg-blue-600 disabled:opacity-50"
             >
               {loading ? "Sourcing en cours..." : "🚀 Lancer le sourcing"}
             </button>
-            {done && (
+            {loading && (
+              <div className="mt-3 text-center text-xs text-gray-400">
+                Recherche en cours sur Google Maps...
+              </div>
+            )}
+            {result && result.success && (
               <div className="mt-3 bg-green-50 text-green-700 text-sm text-center py-2 rounded-lg">
-                ✓ Sourcing terminé — {nombre} leads générés
+                ✓ {result.count} leads générés et sauvegardés !
+              </div>
+            )}
+            {result && !result.success && (
+              <div className="mt-3 bg-red-50 text-red-700 text-sm text-center py-2 rounded-lg">
+                Erreur — vérifie ta clé API Serper
               </div>
             )}
           </div>
